@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/57200/Binaire-FreznelAI-Assessment#readme",
   "dependencies": {
+    "firebase": "^12.19.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

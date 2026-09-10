@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { ModelAPI } from "./api/ModelAPI";
+import { Auth, Logout } from "./auth/Auth";
+import { OfflineCache } from "./offline/OfflineCache";
 
 type Model = {
   id: string;
@@ -26,6 +28,11 @@ function useDebounce(value: string, delay = 400) {
 }
 
 function App() {
+    const [loggedIn, setLoggedIn] = useState(false);
+
+if (!loggedIn) {
+  return <Auth onLogin={() => setLoggedIn(true)} />;
+}
   const [models, setModels] = useState<Model[]>([]);
   const [search, setSearch] = useState("");
   const [family, setFamily] = useState("");
@@ -34,14 +41,40 @@ function App() {
   const [sort, setSort] = useState("name-asc");
   const [loading, setLoading] = useState(true);
 
+  const [online, setOnline] = useState(navigator.onLine);
+
+useEffect(() => {
+  const goOnline = () => setOnline(true);
+  const goOffline = () => setOnline(false);
+
+  window.addEventListener("online", goOnline);
+  window.addEventListener("offline", goOffline);
+
+  return () => {
+    window.removeEventListener("online", goOnline);
+    window.removeEventListener("offline", goOffline);
+  };
+}, []);
   const debouncedSearch = useDebounce(search);
 
   useEffect(() => {
-    new ModelAPI()
-      .fetchModels()
-      .then((data) => setModels(data))
-      .finally(() => setLoading(false));
-  }, []);
+  const api = new ModelAPI();
+
+  api
+    .fetchModels()
+    .then((data) => {
+      setModels(data);
+      OfflineCache.save(data);
+    })
+    .catch(() => {
+      const cached = OfflineCache.load<Model[]>();
+
+      if (cached) {
+        setModels(cached);
+      }
+    })
+    .finally(() => setLoading(false));
+}, []);
 
   const families = useMemo(
     () => [...new Set(models.map((m) => m.family))].sort(),
